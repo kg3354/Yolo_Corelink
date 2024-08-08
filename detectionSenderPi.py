@@ -7,8 +7,8 @@ import os
 import struct
 import time
 import math
-from picamera.array import PiRGBArray
-from picamera import PiCamera
+
+from picamera2 import Picamera2
 
 # Constants for chunk size, header size, and retry configuration
 CHUNK_SIZE = 32 * 1024  # 32 KB chunk size
@@ -106,33 +106,40 @@ async def main():
     sender_id = await corelink.create_sender("detectionRaw", "ws", "description1")
 
     receiver_id = await corelink.create_receiver("detectionCtl", "ws", alert=True, echo=True)
-
+    
     print(f'Receiver ID: {receiver_id}')
     print("Start receiving")
-
+    
     asyncio.create_task(check_connection())  # Start connection validation in the background
 
     # Start video capture
-    camera = PiCamera()
-    camera.resolution = (640, 480)
-    raw_capture = PiRGBArray(camera, size=(640, 480))
+    picam2 = Picamera2()
 
-    time.sleep(0.1)  # Allow the camera to warm up
+   
+    # Configure the camera
+    picam2.configure(picam2.create_video_configuration())
 
-    for frame in camera.capture_continuous(raw_capture, format="bgr", use_video_port=True):
-        image = frame.array
+    # Restart the camera after configuration
+    picam2.start()
+    frame_counter = 0
+    try:
+        while True:
+            # Capture a frame
+            frame = picam2.capture_array()
 
-        # Convert the frame to bytes
-        _, frame_encoded = cv2.imencode('.jpg', image)
-        frame_bytes = frame_encoded.tobytes()
-        
-        # Send the frame
-        await send_file(frame_bytes, frame_counter)
-        frame_counter += 1
+            # Convert the frame to bytes
+            _, frame_encoded = cv2.imencode('.jpg', frame)
+            frame_bytes = frame_encoded.tobytes()
 
-        # Clear the stream for the next frame
-        raw_capture.truncate(0)
+            # Send the frame
+            await send_file(frame_bytes, frame_counter)
+            frame_counter += 1
 
+      
+            print(frame_counter)
+    finally:
+        # Stop the camera when done
+        picam2.stop()
     await send_end_message()  # Send end message when done
 
     try:
