@@ -45,19 +45,20 @@ async def process_frame_with_buffer(frame_data, frame_number, timestamp, start_t
     # Perform inference
     results = model(img)
     
-    # Collect results for this frame
-    frame_results = []
+    counter=0
     for result in results:
         for box in result.boxes:
             class_id = int(box.cls)
             confidence = float(box.conf)
             bbox = box.xyxy
             label = result.names[class_id]
-            frame_results.append(f"Detected {label} with confidence {confidence:.2f} at {bbox}")
+            
+            print(f"{label}:{confidence:.2f} {bbox}")
 
-    # Send all results together
-    if frame_results:
-        await corelink.send(sender_id, "----".join(frame_results))
+            if label == "person" and confidence > 0.2:
+                counter += 1
+    print(counter)
+    await corelink.send(sender_id, f"The total number of human in the frame is {counter}")
 
 
 # Callback function for received data

@@ -13,7 +13,7 @@ spec:
           command: ["sh", "-c"]
           args:
             - |
-              python3.10 ./detectionReceiver.py
+           
               tail -f /dev/null
           resources:
             limits:
