@@ -9,7 +9,14 @@ import time
 import math
 
 from picamera2 import Picamera2
+from gpiozero import LED
 
+GPIO_PINS = [13, 19, 26]  # The pins are subject to change
+
+# Create LED objects for each pin
+leds = [LED(pin) for pin in GPIO_PINS]
+
+current_led_index = None
 # Constants for chunk size, header size, and retry configuration
 CHUNK_SIZE = 32 * 1024  # 32 KB chunk size
 HEADER_SIZE = 14  # Updated to include timestamp (8 bytes) + frame number (2 bytes) + chunk index (2 bytes) + total chunks (2 bytes)
@@ -23,8 +30,22 @@ frame_counter = 0  # Frame counter for sequential frame numbers
 
 # Callback function for received data
 async def callback(data_bytes, streamID, header):
-    print(f"Received data with length {len(data_bytes)} : {data_bytes}")
+    global current_led_index
+    
+    print(data_bytes)
+    
+    index = (data_bytes)[-1] -48
+    
+    if index < 0 or index >= len(leds):
+        raise ValueError("Invalid index. Must be between 0 and {}.".format(len(leds) - 1))
 
+    # Turn off the currently active LED if it's different from the new index
+    if current_led_index is not None and current_led_index != index:
+        leds[current_led_index].off()
+    # Turn on the new LED
+    if current_led_index != index:
+        leds[index].on()
+        current_led_index = index
 # Subscriber callback function
 async def subscriber(response, key):
     global validConnection
